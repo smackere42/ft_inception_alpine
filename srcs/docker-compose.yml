@@ -1,0 +1,124 @@
+version: '3'
+
+services:
+
+  mariadb:
+    container_name: mariadb
+    image: smackere:mariadb
+    build:
+      context: .
+      dockerfile: ./requirements/mariadb/Dockerfile
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+        DB_ROOT: ${DB_ROOT}
+    volumes:
+      - db:/var/lib/mysql
+    # ports:
+    #   - "3306:3306"
+    networks:
+      - intra
+    restart: always
+
+  wordpress:
+    container_name: wordpress
+    image: smackere:wordpress
+    build:
+      context: .
+      dockerfile: ./requirements/wordpress/Dockerfile
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+    depends_on:
+      - mariadb
+    networks:
+      - intra
+    volumes:
+      - wp:/var/www/
+    restart: always
+
+  nginx:
+    container_name: nginx
+    image: smackere:nginx
+    build: ./requirements/nginx
+    # hostname: localhost
+    volumes:
+      - wp:/var/www/
+    networks:
+      - intra
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    restart: always
+
+  redis:
+    container_name: redis
+    image: smackere:redis
+    build: ./requirements/bonus/redis
+    volumes:
+      - wp:/var/www/
+    depends_on:
+      - wordpress
+    ports:
+      - "6379:6379"
+    networks:
+      - intra
+    restart: always
+
+  vsftpd:
+    container_name: vsftpd
+    image: smackere:vsftpd
+    build:
+      context: .
+      dockerfile: requirements/bonus/ftp/Dockerfile
+      args:
+        FTP_USR: ${FTP_USR}
+        FTP_PWD: ${FTP_PWD}
+    ports:
+      - "21:21"
+    volumes:
+      - wp:/var/www/
+    networks:
+     - intra
+    restart: always
+
+  adminer:
+    container_name: adminer
+    image: smackere:adminer
+    build: requirements/bonus/adminer/
+    depends_on:
+      - mariadb
+    ports:
+      - "8080:8080"
+    networks:
+     - intra
+    restart: always
+
+  static:
+    container_name: static
+    image: smackere:static
+    build: requirements/bonus/static
+    ports:
+      - "80:80"
+    restart: always
+
+volumes:
+  db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/smackere/data/mariadb
+  wp:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/smackere/data/wordpress
+
+networks:
+  intra:
+    driver: bridge
