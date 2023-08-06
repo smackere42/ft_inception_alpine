@@ -1,2 +1,4 @@
 .env
 .DS_Store
+.smackere.42.crt
+.smackere.42.key
